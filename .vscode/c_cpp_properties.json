@@ -1,0 +1,23 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/usr/include/libusb-1.0"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "linux-gcc-x64",
+            "compilerArgs": [
+                "${file}",
+                "$(pkg-config --libs --cflags libusb-1.0)",
+                "-o",
+                "${fileBasenameNoExtension}"
+            ]
+        }
+    ],
+    "version": 4
+}
