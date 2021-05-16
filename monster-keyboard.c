@@ -1,12 +1,16 @@
 #include <stdio.h>
+#include<stdlib.h>
 #include "libusb.h"
 
 libusb_device* open_kb(uint16_t vendor, uint16_t product);
 libusb_device_handle* hand_kb(libusb_device* dev_found);
 void wait_end(int* test);
-void send_color(libusb_device_handle* dev_hand, unsigned char endAddr, unsigned char data[6][64], int* transed, int index);
+void send_color(libusb_device_handle* dev_hand, unsigned char endAddr, unsigned char color_data[6][64], int* transed, int index);
+void send_mode(libusb_device_handle* dev_hand, unsigned char mode_data[]);
+int set_mode(int mode, unsigned char mode_data[8], unsigned char bright, unsigned char speed, unsigned char rotation, unsigned char trig);
 
-int main() {
+
+int main(int argc, char** argv) {
    libusb_device *dev;
    uint16_t vendorId = 0x048d;
    uint16_t productId = 0xce00;
@@ -17,11 +21,34 @@ int main() {
    struct libusb_endpoint_descriptor epoint;
    struct libusb_transfer* trans;
    unsigned char bright = 0x16;
+   unsigned char speed = 0x05;
+   unsigned char rotation = 0x01;
+   unsigned char trig = 0x00;
    int trans_test = 0;
    int* transed = NULL;
+   int mode = 7;
 
-   unsigned char init_kb[] = {0x08, 0x02, 0x33, 0x00, bright, 0x00, 0x00, 0x00};
-   unsigned char fade[] = {0x08, 0x02, 0x02, 0x05, bright, 0x08, 0x00, 0x00};
+   unsigned char init_kb[] = {0x08, 0x02, 0x33, 0x00, bright, 0x00, 0x00, 0x00};                  /*         Keyboard Init       */
+
+                                                                                                  /* ----------------------------*/
+                                                                                                  /* | Keyboard Modes | Number | */
+   unsigned char modes[11][8] = {   {0x08, 0x02, 0x03, 0x05, 0x00, 0x08, 0x01, 0x00},             /* | off            | 0      | */
+                                    {0x08, 0x02, 0x33, 0x00, bright, 0x00, 0x00, 0x00},           /* | single         | 1      | */
+                                    {0x08, 0x02, 0x02, speed, bright, 0x08, 0x00, 0x00},          /* | fade           | 2      | */
+                                    {0x08, 0x02, 0x03, speed, bright, 0x08, rotation, 0x00},      /* | wave           | 3      | */
+                                    {0x08, 0x02, 0x04, speed, bright, 0x08, trig, 0x00},          /* | dots           | 4      | */
+                                    {0x08, 0x02, 0x05, 0x00, bright, 0x08, 0x00, 0x00},           /* | rainbow        | 5      | */
+                                    {0x08, 0x02, 0x06, speed, bright, 0x08, trig, 0x00},          /* | explosion      | 6      | */
+                                    {0x08, 0x02, 0x09, speed, bright, 0x08, 0x00, 0x00},          /* | snake          | 7      | */
+                                    {0x08, 0x02, 0x0a, speed, bright, 0x08, 0x00, 0x00},          /* | raindrops      | 8      | */
+                                    {0x08, 0x02, 0x0e, speed, bright, 0x08, trig, 0x00},          /* | lines          | 9      | */
+                                    {0x08, 0x02, 0x11, speed, bright, 0x08, trig, 0x00}   };      /* | firework       | 10     | */
+                                                                                                  /* ----------------------------*/
+
+   unsigned char mode_single[] = {0x08, 0x02, 0x33, 0x00, bright, 0x00, 0x00, 0x00};
+   unsigned char mode_fade[] = {0x08, 0x02, 0x02, speed, bright, 0x08, 0x00, 0x00};
+
+
    unsigned char color_kb[6][64];
 
    libusb_init(NULL);
@@ -62,71 +89,17 @@ int main() {
 
    libusb_control_transfer(dev_hand, 0x21, 9, 0x300, 1, init_kb, sizeof(init_kb), 4000);
 
-   /* libusb_control_transfer(dev_hand, 0x21, 9, 0x300, 1, fade, sizeof(fade), 4000); */
-
-   for(int i = 0; i <= 5; i++){
-      for(int j = 0; j <= 20; j++){
-         /* e1a0db */
-         color_kb[i][j + 0] = 0xaa;
-         color_kb[i][j + 21] = 0x36;
-         color_kb[i][j + 42] = 0xd4;
+   if (argc == 1){
+      send_color(dev_hand, epoint.bEndpointAddress, color_kb, transed, 0);
+   }else if (argc == 2){
+      if (argv[1][0] == 'c'){
+         send_color(dev_hand, epoint.bEndpointAddress, color_kb, transed, 0);
+      }else {
+         int mode = atoi(argv[1]);
+         set_mode(mode, modes[mode], bright, speed, rotation, trig);
+         send_mode(dev_hand, modes[mode]);
       }
    }
-   color_kb[3][4] = 0xdc;
-   color_kb[2][3] = 0xdc;
-   color_kb[2][4] = 0xdc;
-   color_kb[2][5] = 0xdc;
-   color_kb[1][15] = 0xdc;
-   color_kb[0][14] = 0xdc;
-   color_kb[0][15] = 0xdc;
-   color_kb[0][16] = 0xdc;
-
-   color_kb[3][4 + 21] = 0x7f;
-   color_kb[2][3 + 21] = 0x7f;
-   color_kb[2][4 + 21] = 0x7f;
-   color_kb[2][5 + 21] = 0x7f;
-   color_kb[1][15 + 21] = 0x7f;
-   color_kb[0][14 + 21] = 0x7f;
-   color_kb[0][15 + 21] = 0x7f;
-   color_kb[0][16 + 21] = 0x7f;
-
-   color_kb[3][4 + 42] = 0x32;
-   color_kb[2][3 + 42] = 0x32;
-   color_kb[2][4 + 42] = 0x32;
-   color_kb[2][5 + 42] = 0x32;
-   color_kb[1][15 + 42] = 0x32;
-   color_kb[0][14 + 42] = 0x32;
-   color_kb[0][15 + 42] = 0x32;
-   color_kb[0][16 + 42] = 0x32;
-
-   /*
-   unsigned char ctrl_buf[] = {0x16, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-
-   libusb_control_transfer(dev_hand, 0x21, 9, 0x300, 1, ctrl_buf, sizeof(ctrl_buf), 4000);
-
-   libusb_interrupt_transfer(dev_hand, epoint.bEndpointAddress, color_kb[0], 64*sizeof(unsigned char), transed, 4000);
-
-   */
-
-   /* send_color(dev_hand, epoint.bEndpointAddress, color_kb, transed, 0); */
-
-   
-   for (unsigned char i = 0; i <= 5; i++){
-      unsigned char ctrl_buf[] = {0x16, 0x00, i, 0x00, 0x00, 0x00, 0x00, 0x00};
-
-      libusb_control_transfer(dev_hand, 0x21, 9, 0x300, 1, ctrl_buf, sizeof(ctrl_buf), 4000);
-
-      printf("\n %d", libusb_interrupt_transfer(dev_hand, 0x02, color_kb[i], 64*sizeof(unsigned char), transed, 4000));
-   }
-   
-
-   /*
-   trans = libusb_alloc_transfer(0);
-
-   libusb_fill_control_setup();
-
-   libusb_fill_control_transfer(trans, dev_hand, init_kb, wait_end, &trans_test, 4000); 
-   */
 
    libusb_close(dev_hand);
 
@@ -187,14 +160,92 @@ void wait_end(int* test){
    *test = 1;
 }
 
-void send_color(libusb_device_handle* dev_hand, unsigned char endAddr, unsigned char data[6][64], int* transed, int index){
-   unsigned char ctrl_buf[] = {0x16, 0x00, index, 0x00, 0x00, 0x00, 0x00, 0x00};
-
-   libusb_control_transfer(dev_hand, 0x21, 9, 0x300, 1, ctrl_buf, sizeof(ctrl_buf), 4000);
-
-   libusb_bulk_transfer(dev_hand, endAddr, data[index], sizeof(data[index]), transed, 4000);
-
-   if (index + 1 < 6){
-      send_color(dev_hand, endAddr, data, transed, index + 1);
+void send_color(libusb_device_handle* dev_hand, unsigned char endAddr, unsigned char color_kb[6][64], int* transed, int index){
+   for(int i = 0; i <= 5; i++){
+      for(int j = 0; j <= 20; j++){
+         /* e1a0db */
+         color_kb[i][j + 0] = 0xaa;
+         color_kb[i][j + 21] = 0x36;
+         color_kb[i][j + 42] = 0xd4;
+      }
    }
+   color_kb[3][4] = 0xdc;
+   color_kb[2][3] = 0xdc;
+   color_kb[2][4] = 0xdc;
+   color_kb[2][5] = 0xdc;
+   color_kb[1][15] = 0xdc;
+   color_kb[0][14] = 0xdc;
+   color_kb[0][15] = 0xdc;
+   color_kb[0][16] = 0xdc;
+
+   color_kb[3][4 + 21] = 0x7f;
+   color_kb[2][3 + 21] = 0x7f;
+   color_kb[2][4 + 21] = 0x7f;
+   color_kb[2][5 + 21] = 0x7f;
+   color_kb[1][15 + 21] = 0x7f;
+   color_kb[0][14 + 21] = 0x7f;
+   color_kb[0][15 + 21] = 0x7f;
+   color_kb[0][16 + 21] = 0x7f;
+
+   color_kb[3][4 + 42] = 0x32;
+   color_kb[2][3 + 42] = 0x32;
+   color_kb[2][4 + 42] = 0x32;
+   color_kb[2][5 + 42] = 0x32;
+   color_kb[1][15 + 42] = 0x32;
+   color_kb[0][14 + 42] = 0x32;
+   color_kb[0][15 + 42] = 0x32;
+   color_kb[0][16 + 42] = 0x32;
+
+   for (unsigned char i = index; i <= 5; i++){
+      unsigned char ctrl_buf[] = {0x16, 0x00, i, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+      libusb_control_transfer(dev_hand, 0x21, 9, 0x300, 1, ctrl_buf, sizeof(ctrl_buf), 4000);
+
+      libusb_interrupt_transfer(dev_hand, 0x02, color_kb[i], 64*sizeof(unsigned char), transed, 4000);  /* Add check later */
+   }
+}
+
+int set_mode(int mode, unsigned char mode_data[8], unsigned char bright, unsigned char speed, unsigned char rotation, unsigned char trig){
+   switch (mode)
+   {
+   case 3:
+   case 4:
+   case 6:
+   case 9:
+   case 10:
+      if (mode == 3){
+         mode_data[6] = rotation;
+      }else{
+         mode_data[6] = trig;
+      }
+   case 2:
+   case 7:
+   case 8:
+      mode_data[3] = speed;
+   case 1:
+   case 5:
+      mode_data[4] = bright;
+   case 0:
+      return 0;
+      break;
+   default:
+      return 1;
+      break;
+   }
+   
+   
+   /*
+   if(mode == 0){
+      return *modes[mode];
+   }else if(mode == 1 || mode == 5){
+      *modes[mode][4] = bright;
+      return *modes[mode];
+   }else if(mode == 2 || mode == 7 || mode == 8){
+
+   }
+   */
+}
+
+void send_mode(libusb_device_handle* dev_hand, unsigned char mode_data[]){
+   libusb_control_transfer(dev_hand, 0x21, 9, 0x300, 1, mode_data, 8*sizeof(unsigned char), 4000);
 }
